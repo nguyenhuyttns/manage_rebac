@@ -1,0 +1,422 @@
+{
+  "info": {
+    "name": "RBAC - Step 1 - Authentication",
+    "description": "Run in order. Covers section 1.10 and profiles for the four system roles. Remaining T01-T24 cases belong to Step 2.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001/api/v1"
+    },
+    {
+      "key": "adminEmail",
+      "value": "huy.nd252582m@sis.hust.edu.vn"
+    },
+    {
+      "key": "adminPassword",
+      "value": "Admin@2026"
+    },
+    {
+      "key": "token",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Login super-admin and save token",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"grantType\": \"password\",\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/auth/tokens"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "if (pm.response.code === 200) pm.collectionVariables.set('token', pm.response.json().accessToken);",
+              "pm.test('Bearer token', () => { const b = pm.response.json(); pm.expect(b.tokenType).to.eql('Bearer'); pm.expect(b.expiresIn).to.eql(3600); pm.expect(b.accessToken).to.be.a('string'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02a - Wrong email",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"grantType\": \"password\",\n  \"email\": \"absent@example.test\",\n  \"password\": \"Wrong@2026\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/auth/tokens"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "pm.test('Error code', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_CREDENTIALS'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02b - Wrong password",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"grantType\": \"password\",\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"Wrong@2026\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/auth/tokens"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "pm.test('Error code', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_CREDENTIALS'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Missing password",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"grantType\": \"password\",\n  \"email\": \"{{adminEmail}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/auth/tokens"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "pm.test('Error code', () => pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'));",
+              "pm.test('Field details', () => pm.expect(pm.response.json().error.details).to.be.an('array').that.is.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Profile without token",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "pm.test('Error code', () => pm.expect(pm.response.json().error.code).to.eql('UNAUTHENTICATED'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Profile with invalid token",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}tampered"
+          }
+        ],
+        "url": "{{baseUrl}}/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "pm.test('Error code', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_TOKEN'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Profile with valid token",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Profile and effective permissions', () => { const b = pm.response.json(); pm.expect(b.id).to.be.a('string'); pm.expect(b.roles).to.be.an('array'); pm.expect(b.permissions).to.be.an('array'); pm.expect(b.permissions).to.eql([...new Set(b.permissions)].sort()); });",
+              "pm.test('No internal or password fields', () => pm.expect(pm.response.text()).not.to.match(/\"(?:passwordHash|password|_id|__v)\"/));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Extra - Login user-manager",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"grantType\": \"password\",\n  \"email\": \"manager@example.test\",\n  \"password\": \"Manager@2026\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/auth/tokens"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "if (pm.response.code === 200) pm.collectionVariables.set('token', pm.response.json().accessToken);",
+              "pm.test('Bearer token', () => { const b = pm.response.json(); pm.expect(b.tokenType).to.eql('Bearer'); pm.expect(b.expiresIn).to.eql(3600); pm.expect(b.accessToken).to.be.a('string'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Extra - Profile user-manager",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Profile and effective permissions', () => { const b = pm.response.json(); pm.expect(b.id).to.be.a('string'); pm.expect(b.roles).to.be.an('array'); pm.expect(b.permissions).to.be.an('array'); pm.expect(b.permissions).to.eql([...new Set(b.permissions)].sort()); });",
+              "pm.test('No internal or password fields', () => pm.expect(pm.response.text()).not.to.match(/\"(?:passwordHash|password|_id|__v)\"/));",
+              "pm.test('Expected role', () => pm.expect(pm.response.json().roles.map(r => r.code)).to.include('user-manager'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Extra - Login auditor",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"grantType\": \"password\",\n  \"email\": \"auditor@example.test\",\n  \"password\": \"Auditor@2026\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/auth/tokens"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "if (pm.response.code === 200) pm.collectionVariables.set('token', pm.response.json().accessToken);",
+              "pm.test('Bearer token', () => { const b = pm.response.json(); pm.expect(b.tokenType).to.eql('Bearer'); pm.expect(b.expiresIn).to.eql(3600); pm.expect(b.accessToken).to.be.a('string'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Extra - Profile auditor",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Profile and effective permissions', () => { const b = pm.response.json(); pm.expect(b.id).to.be.a('string'); pm.expect(b.roles).to.be.an('array'); pm.expect(b.permissions).to.be.an('array'); pm.expect(b.permissions).to.eql([...new Set(b.permissions)].sort()); });",
+              "pm.test('No internal or password fields', () => pm.expect(pm.response.text()).not.to.match(/\"(?:passwordHash|password|_id|__v)\"/));",
+              "pm.test('Expected role', () => pm.expect(pm.response.json().roles.map(r => r.code)).to.include('auditor'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Extra - Login member",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"grantType\": \"password\",\n  \"email\": \"member@example.test\",\n  \"password\": \"Member@2026\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/auth/tokens"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "if (pm.response.code === 200) pm.collectionVariables.set('token', pm.response.json().accessToken);",
+              "pm.test('Bearer token', () => { const b = pm.response.json(); pm.expect(b.tokenType).to.eql('Bearer'); pm.expect(b.expiresIn).to.eql(3600); pm.expect(b.accessToken).to.be.a('string'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Extra - Profile member",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Profile and effective permissions', () => { const b = pm.response.json(); pm.expect(b.id).to.be.a('string'); pm.expect(b.roles).to.be.an('array'); pm.expect(b.permissions).to.be.an('array'); pm.expect(b.permissions).to.eql([...new Set(b.permissions)].sort()); });",
+              "pm.test('No internal or password fields', () => pm.expect(pm.response.text()).not.to.match(/\"(?:passwordHash|password|_id|__v)\"/));",
+              "pm.test('Expected role', () => pm.expect(pm.response.json().roles.map(r => r.code)).to.include('member'));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
