@@ -107,13 +107,13 @@
   <noscript>Vui lòng bật JavaScript để sử dụng ứng dụng.</noscript>
   <script type="text/babel">
     const { useState, useEffect, useCallback, useRef } = React;
-    const API_BASE = "http://localhost:3001/api/v1";
+    const API_BASE = "https://manage-rebac.onrender.com/api/v1";
     const TOKEN_KEY = "rbac_token";
     const getToken = () => sessionStorage.getItem(TOKEN_KEY);
     const setToken = (token) => token ? sessionStorage.setItem(TOKEN_KEY, token) : sessionStorage.removeItem(TOKEN_KEY);
     const can = (me, permission) => !!me && me.permissions.includes(permission);
     const sameId = (a, b) => String(a) === String(b);
-    const api = axios.create({ baseURL: API_BASE, timeout: 10000 });
+    const api = axios.create({ baseURL: API_BASE, timeout: 120000 });
 
     // Token được gắn tại một chỗ, các component chỉ gọi api.get/post/patch…
     api.interceptors.request.use((config) => {
@@ -243,6 +243,7 @@
           <Field id="login-password" label="Mật khẩu"><input id="login-password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} /></Field>
         </fieldset>
         {error && <p className="error alert" role="alert">{error}</p>}
+        {loading && <p className="muted" role="status">Đang kết nối máy chủ. Lần truy cập đầu có thể mất khoảng một phút.</p>}
         <button className="primary" disabled={loading}>{loading ? "Đang đăng nhập…" : "Đăng nhập"}</button>
       </form>;
     }
@@ -286,7 +287,7 @@
       }, [notify, reloadMe]);
       function logout() { setToken(null); setMe(null); setToast(null); setTab("users"); }
       async function loggedIn() { await reloadMe(); setToast(null); setTab("users"); }
-      if (checking) return <p className="loading">Đang kiểm tra phiên đăng nhập…</p>;
+      if (checking) return <div className="loading" role="status"><p>Đang kiểm tra phiên đăng nhập…</p><p>Lần truy cập đầu có thể mất khoảng một phút để kết nối máy chủ.</p></div>;
       const tabs = [
         can(me, "users:read") && { key: "users", label: "Người dùng" },
         can(me, "roles:read") && { key: "roles", label: "Vai trò" },
