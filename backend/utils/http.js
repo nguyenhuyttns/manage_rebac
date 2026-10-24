@@ -10,19 +10,29 @@ const detail = (field, issue, message) => ({ field, issue, message });
 const notAllowedFields = (body, allowed) => Object.keys(body || {})
   .filter((key) => !allowed.includes(key))
   .map((key) => detail(key, "FIELD_NOT_ALLOWED", `Trường '${key}' không được phép gửi lên endpoint này.`));
+function bodyDetails(body, allowed) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return [detail("body", "INVALID_TYPE", "Body phải là một đối tượng JSON.")];
+  }
+  return notAllowedFields(body, allowed);
+}
 const isObjectId = (id) => typeof id === "string" && /^[a-f\d]{24}$/i.test(id)
   && mongoose.isValidObjectId(id);
 
 function parsePaging(query, details) {
   const page = query.page === undefined ? 1 : Number(query.page);
   const limit = query.limit === undefined ? 10 : Number(query.limit);
-  if (!Number.isInteger(page) || page < 1) details.push(detail("page", "INVALID_VALUE", "page phải là số nguyên ≥ 1."));
-  if (!Number.isInteger(limit) || limit < 1 || limit > 100) details.push(detail("limit", "OUT_OF_RANGE", "limit phải trong khoảng 1–100."));
+  if ((query.page !== undefined && typeof query.page !== "string") || !Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger((page - 1) * limit)) details.push(detail("page", "INVALID_VALUE", "page phải là số nguyên ≥ 1 trong phạm vi phân trang hợp lệ."));
+  if ((query.limit !== undefined && typeof query.limit !== "string") || !Number.isInteger(limit) || limit < 1 || limit > 100) details.push(detail("limit", "OUT_OF_RANGE", "limit phải trong khoảng 1–100."));
   return { page, limit };
 }
 
 function parseSort(raw, allowed, details) {
   const sort = {};
+  if (typeof raw !== "string" || !raw.trim()) {
+    details.push(detail("sort", "INVALID_VALUE", "sort phải là chuỗi tên trường hợp lệ."));
+    return sort;
+  }
   for (const part of String(raw).split(",").map((s) => s.trim()).filter(Boolean)) {
     const field = part.replace(/^-/, "");
     if (!allowed.includes(field)) {
@@ -34,9 +44,19 @@ function parseSort(raw, allowed, details) {
   return sort;
 }
 
+function parseSearch(raw, details) {
+  if (raw === undefined) return "";
+  if (typeof raw !== "string" || raw.trim().length < 2) {
+    details.push(detail("q", "INVALID_VALUE", "q phải là chuỗi có ít nhất 2 ký tự."));
+    return "";
+  }
+  return raw.trim();
+}
+
 const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const pageMeta = (page, limit, totalItems) => ({ page, limit, totalItems, totalPages: Math.max(1, Math.ceil(totalItems / limit)) });
 const roleSummary = (role) => ({ id: String(role._id), code: role.code, name: role.name });
+const permissionView = (permission) => ({ code: permission.code, resource: permission.resource, action: permission.action, description: permission.description });
 
 function userView(user) {
   return {
@@ -55,4 +75,4 @@ function roleView(role, userCount) {
   };
 }
 
-module.exports = { fail, detail, notAllowedFields, isObjectId, parsePaging, parseSort, escapeRegex, pageMeta, userView, roleView, roleSummary };
+module.exports = { fail, detail, notAllowedFields, bodyDetails, isObjectId, parsePaging, parseSort, parseSearch, escapeRegex, pageMeta, userView, roleView, roleSummary, permissionView };

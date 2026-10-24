@@ -1,0 +1,992 @@
+{
+  "info": {
+    "name": "Buoc 2 - RBAC",
+    "description": "24 ca T01–T24 theo đề. Trước khi chạy, dùng request đăng nhập ở Bước 1 để lấy bốn token rồi điền adminToken, managerToken, auditorToken, memberToken trong Variables. ID vai trò và manager đã điền theo database hiện tại; nếu seed lại thì cập nhật các ID. Đổi testEmail thành email chưa dùng mỗi lần chạy vì xóa mềm vẫn giữ email. Chạy từ T01 đến T24; T06 tự lưu userId. T13 gửi lại để kiểm tra tính lặp; T15 kiểm tra token cũ rồi gán lại role manager; T17 kiểm tra GET và đăng nhập sau xóa. Các lời gọi phụ này thuộc chính yêu cầu của từng ca.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001/api/v1"
+    },
+    {
+      "key": "adminToken",
+      "value": ""
+    },
+    {
+      "key": "managerToken",
+      "value": ""
+    },
+    {
+      "key": "auditorToken",
+      "value": ""
+    },
+    {
+      "key": "memberToken",
+      "value": ""
+    },
+    {
+      "key": "managerId",
+      "value": "6adc64a3b40b96c293d872a3"
+    },
+    {
+      "key": "superAdminRoleId",
+      "value": "6adc64a3b40b96c293d8729d"
+    },
+    {
+      "key": "auditorRoleId",
+      "value": "6adc64a3b40b96c293d8729f"
+    },
+    {
+      "key": "memberRoleId",
+      "value": "6adc64a3b40b96c293d872a0"
+    },
+    {
+      "key": "managerRoleId",
+      "value": "6adc64a3b40b96c293d8729e"
+    },
+    {
+      "key": "customRoleId",
+      "value": "6adc64a3b40b96c293d872a1"
+    },
+    {
+      "key": "testEmail",
+      "value": "kiemthu01@example.test"
+    },
+    {
+      "key": "userId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "T01 - Chua dang nhap",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/users"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 401\", function () {",
+              "    pm.response.to.have.status(401);",
+              "});",
+              "",
+              "pm.test(\"Ma loi UNAUTHENTICATED\", function () {",
+              "    pm.expect(pm.response.json().error.code).to.eql(\"UNAUTHENTICATED\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "T02 - Member xem danh sach",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{memberToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/users"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 403\", function () {",
+              "    pm.response.to.have.status(403);",
+              "});",
+              "",
+              "pm.test(\"Ma loi FORBIDDEN\", function () {",
+              "    pm.expect(pm.response.json().error.code).to.eql(\"FORBIDDEN\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "T03 - Phan trang",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auditorToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/users?page=2&limit=3&sort=fullName"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Thong tin phan trang dung\", function () {",
+              "    const result = pm.response.json();",
+              "    pm.expect(result.meta.page).to.eql(2);",
+              "    pm.expect(result.meta.limit).to.eql(3);",
+              "    pm.expect(result.meta.totalPages).to.eql(Math.max(1, Math.ceil(result.meta.totalItems / 3)));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "T04 - Tim kiem va loc",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auditorToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/users?q=nguyen&status=active"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Chi co user phu hop\", function () {",
+              "    const users = pm.response.json().data;",
+              "    pm.expect(users.every(u => u.status === \"active\" && /nguyen/i.test(u.fullName + \" \" + u.email))).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "T05 - Limit khong hop le",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auditorToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/users?limit=500"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 400\", function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test(\"Ma loi INVALID_QUERY_PARAMETER\", function () {",
+              "    pm.expect(pm.response.json().error.code).to.eql(\"INVALID_QUERY_PARAMETER\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "T06 - Them nguoi dung",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{managerToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/users",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"fullName\": \"Nguyen Van An\",\n  \"password\": \"Test@2026\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 201\", function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "if (pm.response.code === 201) {",
+              "    pm.collectionVariables.set(\"userId\", pm.response.json().id);",
+              "}",
+              "pm.test(\"Co Location, khong co passwordHash\", function () {",
+              "    const user = pm.response.json();",
+              "    pm.expect(pm.response.headers.get(\"Location\")).to.eql(\"/api/v1/users/\" + user.id);",
+              "    pm.expect(Object.hasOwn(user, \"passwordHash\")).to.eql(false);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "T07 - Email trung",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{managerToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/users",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"fullName\": \"Nguyen Van An\",\n  \"password\": \"Test@2026\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 409\", function () {",
+              "    pm.response.to.have.status(409);",
+              "});",
+              "",
+              "pm.test(\"Ma loi EMAIL_ALREADY_EXISTS\", function () {",
+              "    pm.expect(pm.response.json().error.code).to.eql(\"EMAIL_ALREADY_EXISTS\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "T08 - Mat khau yeu",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{managerToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/users",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"fullName\": \"Nguyen Van An\",\n  \"password\": \"123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 400\", function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test(\"Ma loi VALIDATION_ERROR\", function () {",
+              "    pm.expect(pm.response.json().error.code).to.eql(\"VALIDATION_ERROR\");",
+              "});",
+              "",
+              "pm.test(\"Bao mat khau yeu\", function () {",
+              "    pm.expect(pm.response.json().error.details.some(d => d.issue === \"WEAK_PASSWORD\")).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "T09 - Them user vuot quyen",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{managerToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/users",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"fullName\": \"Nguyen Van An\",\n  \"password\": \"Test@2026\",\n  \"roleIds\": [\n    \"{{superAdminRoleId}}\"\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 403\", function () {",
+              "    pm.response.to.have.status(403);",
+              "});",
+              "",
+              "pm.test(\"Ma loi PRIVILEGE_ESCALATION\", function () {",
+              "    pm.expect(pm.response.json().error.code).to.eql(\"PRIVILEGE_ESCALATION\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "T10 - Sua so dien thoai",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{managerToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/users/{{userId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phone\": \"+84911222333\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Chi thay doi so dien thoai\", function () {",
+              "    const user = pm.response.json();",
+              "    pm.expect(user.phone).to.eql(\"+84911222333\");",
+              "    pm.expect(user.fullName).to.eql(\"Nguyen Van An\");",
+              "    pm.expect(user.email).to.eql(pm.collectionVariables.get(\"testEmail\"));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "T11 - Sua roles qua PATCH",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{managerToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/users/{{userId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"roles\": [\n    \"{{superAdminRoleId}}\"\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 400\", function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test(\"Ma loi VALIDATION_ERROR\", function () {",
+              "    pm.expect(pm.response.json().error.code).to.eql(\"VALIDATION_ERROR\");",
+              "});",
+              "",
+              "pm.test(\"Tu choi truong roles\", function () {",
+              "    pm.expect(pm.response.json().error.details.some(d => d.field === \"roles\" && d.issue === \"FIELD_NOT_ALLOWED\")).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "T12 - Tu khoa tai khoan",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{managerToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/users/{{managerId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"locked\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 403\", function () {",
+              "    pm.response.to.have.status(403);",
+              "});",
+              "",
+              "pm.test(\"Ma loi SELF_ACTION_FORBIDDEN\", function () {",
+              "    pm.expect(pm.response.json().error.code).to.eql(\"SELF_ACTION_FORBIDDEN\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "T13 - Gan vai tro hai lan",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{managerToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/users/{{userId}}/roles/{{auditorRoleId}}",
+        "description": "Gán auditor hai lần cho cùng user. Cả hai lần phải trả 204, vai trò không được trùng."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 204\", function () {",
+              "    pm.response.to.have.status(204);",
+              "});",
+              "",
+              "pm.sendRequest({",
+              "    url: pm.collectionVariables.get(\"baseUrl\") + \"/users/\" + pm.collectionVariables.get(\"userId\") + \"/roles/\" + pm.collectionVariables.get(\"auditorRoleId\"),",
+              "    method: \"PUT\",",
+              "    header: { Authorization: \"Bearer \" + pm.collectionVariables.get(\"managerToken\") }",
+              "}, function (err, res) {",
+              "    pm.test(\"Gan lan hai van tra 204\", function () {",
+              "        pm.expect(err).to.eql(null);",
+              "        pm.expect(res.code).to.eql(204);",
+              "    });",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "T14 - Gan super-admin vuot quyen",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{managerToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/users/{{userId}}/roles/{{superAdminRoleId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 403\", function () {",
+              "    pm.response.to.have.status(403);",
+              "});",
+              "",
+              "pm.test(\"Ma loi PRIVILEGE_ESCALATION\", function () {",
+              "    pm.expect(pm.response.json().error.code).to.eql(\"PRIVILEGE_ESCALATION\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "T15 - Go role co hieu luc ngay",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/users/{{managerId}}/roles/{{managerRoleId}}",
+        "description": "Super-admin gỡ user-manager; dùng token manager cũ gọi GET /users phải bị 403. Script gán lại role sau khi kiểm tra."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 204\", function () {",
+              "    pm.response.to.have.status(204);",
+              "});",
+              "",
+              "pm.sendRequest({",
+              "    url: pm.collectionVariables.get(\"baseUrl\") + \"/users\",",
+              "    method: \"GET\",",
+              "    header: { Authorization: \"Bearer \" + pm.collectionVariables.get(\"managerToken\") }",
+              "}, function (err, res) {",
+              "    pm.test(\"Token cu bi tu choi ngay\", function () {",
+              "        pm.expect(err).to.eql(null);",
+              "        pm.expect(res.code).to.eql(403);",
+              "    });",
+              "    // Gán lại role để dùng tiếp tài khoản manager ở các ca sau.",
+              "    pm.sendRequest({",
+              "        url: pm.collectionVariables.get(\"baseUrl\") + \"/users/\" + pm.collectionVariables.get(\"managerId\") + \"/roles/\" + pm.collectionVariables.get(\"managerRoleId\"),",
+              "        method: \"PUT\",",
+              "        header: { Authorization: \"Bearer \" + pm.collectionVariables.get(\"adminToken\") }",
+              "    }, function (err, res) {",
+              "        pm.test(\"Gan lai role manager\", function () {",
+              "            pm.expect(err).to.eql(null);",
+              "            pm.expect(res.code).to.eql(204);",
+              "        });",
+              "    });",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "T16 - Manager xoa nguoi dung",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{managerToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/users/{{userId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 403\", function () {",
+              "    pm.response.to.have.status(403);",
+              "});",
+              "",
+              "pm.test(\"Ma loi FORBIDDEN\", function () {",
+              "    pm.expect(pm.response.json().error.code).to.eql(\"FORBIDDEN\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "T17 - Xoa mem nguoi dung",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/users/{{userId}}",
+        "description": "Sau DELETE, GET phải trả 404 và đăng nhập bằng tài khoản đã xóa phải trả 401."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 204\", function () {",
+              "    pm.response.to.have.status(204);",
+              "});",
+              "",
+              "pm.sendRequest({",
+              "    url: pm.collectionVariables.get(\"baseUrl\") + \"/users/\" + pm.collectionVariables.get(\"userId\"),",
+              "    method: \"GET\",",
+              "    header: { Authorization: \"Bearer \" + pm.collectionVariables.get(\"adminToken\") }",
+              "}, function (err, res) {",
+              "    pm.test(\"User da xoa tra 404\", function () {",
+              "        pm.expect(err).to.eql(null);",
+              "        pm.expect(res.code).to.eql(404);",
+              "    });",
+              "});",
+              "pm.sendRequest({",
+              "    url: pm.collectionVariables.get(\"baseUrl\") + \"/auth/tokens\",",
+              "    method: \"POST\",",
+              "    header: { \"Content-Type\": \"application/json\" },",
+              "    body: { mode: \"raw\", raw: JSON.stringify({ grantType: \"password\", email: pm.collectionVariables.get(\"testEmail\"), password: \"Test@2026\" }) }",
+              "}, function (err, res) {",
+              "    pm.test(\"User da xoa khong dang nhap duoc\", function () {",
+              "        pm.expect(err).to.eql(null);",
+              "        pm.expect(res.code).to.eql(401);",
+              "    });",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "T18 - ID khong hop le",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/users/abc"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 404\", function () {",
+              "    pm.response.to.have.status(404);",
+              "});",
+              "",
+              "pm.test(\"Ma loi USER_NOT_FOUND\", function () {",
+              "    pm.expect(pm.response.json().error.code).to.eql(\"USER_NOT_FOUND\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "T19 - Ma vai tro trung",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/roles",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"member\",\n  \"name\": \"Thanh vien\",\n  \"permissions\": []\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 409\", function () {",
+              "    pm.response.to.have.status(409);",
+              "});",
+              "",
+              "pm.test(\"Ma loi ROLE_CODE_EXISTS\", function () {",
+              "    pm.expect(pm.response.json().error.code).to.eql(\"ROLE_CODE_EXISTS\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "T20 - Sua quyen role he thong",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/roles/{{memberRoleId}}/permissions",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"permissions\": []\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 409\", function () {",
+              "    pm.response.to.have.status(409);",
+              "});",
+              "",
+              "pm.test(\"Ma loi SYSTEM_ROLE_PROTECTED\", function () {",
+              "    pm.expect(pm.response.json().error.code).to.eql(\"SYSTEM_ROLE_PROTECTED\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "T21 - Xoa vai tro dang dung",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/roles/{{customRoleId}}",
+        "description": "Dùng role tro-giang đang gán cho assistant@example.test."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 409\", function () {",
+              "    pm.response.to.have.status(409);",
+              "});",
+              "",
+              "pm.test(\"Ma loi ROLE_IN_USE\", function () {",
+              "    pm.expect(pm.response.json().error.code).to.eql(\"ROLE_IN_USE\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "T22 - Ma quyen khong ton tai",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/roles/{{customRoleId}}/permissions",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"permissions\": [\n    \"users:fly\"\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 400\", function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test(\"Ma loi PERMISSION_NOT_FOUND\", function () {",
+              "    pm.expect(pm.response.json().error.code).to.eql(\"PERMISSION_NOT_FOUND\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "T23 - Gia mao header vai tro",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{memberToken}}"
+          },
+          {
+            "key": "X-User-Role",
+            "value": "admin"
+          }
+        ],
+        "url": "{{baseUrl}}/users"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 403\", function () {",
+              "    pm.response.to.have.status(403);",
+              "});",
+              "",
+              "pm.test(\"Ma loi FORBIDDEN\", function () {",
+              "    pm.expect(pm.response.json().error.code).to.eql(\"FORBIDDEN\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "T24 - JSON sai cu phap",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{managerToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/users",
+        "body": {
+          "mode": "raw",
+          "raw": "{",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Tra ve 400\", function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test(\"Ma loi MALFORMED_JSON\", function () {",
+              "    pm.expect(pm.response.json().error.code).to.eql(\"MALFORMED_JSON\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

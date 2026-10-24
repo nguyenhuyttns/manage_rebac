@@ -43,7 +43,13 @@ async function start() {
   if (!Number.isInteger(ttl) || ttl <= 0) throw new Error("ACCESS_TOKEN_TTL phải là số nguyên dương.");
   await mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 5000 });
   const port = Number(process.env.PORT || 3001);
-  return app.listen(port, () => console.log(`Đã kết nối MongoDB. Server: http://localhost:${port}/api/v1`));
+  return new Promise((resolve, reject) => {
+    const server = app.listen(port, (err) => {
+      if (err) return reject(err);
+      console.log(`Đã kết nối MongoDB. Server: http://localhost:${port}/api/v1`);
+      resolve(server);
+    });
+  });
 }
 
 if (require.main === module) {
